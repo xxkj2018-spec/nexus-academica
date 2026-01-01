@@ -1,16 +1,19 @@
 # Nexus Academica (全知枢纽)
-
+> **"In the flood of AI, we build the Ark." (在 AI 的洪流中，我们建造方舟。)**
 > **"Stop chasing the waves. Master the map." (别在浪潮中追逐，来掌握航图。)**
 
-![Project Status](https://img.shields.io/badge/Status-Live_Beta-blue) ![License](https://img.shields.io/badge/License-AGPL_v3-red) ![Update](https://img.shields.io/badge/Content-Daily_Update-green)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-## 🌌 解决什么问题？(The Solution)
+<p align="center">
+  <img src="./assets/demo-preview.png" alt="Nexus Academica Preview" width="100%">
+</p>
+## 🌌 这是一个怎样的世界？(The Vision)
 
 在这个 AI 寒武纪大爆发的时代，你是否感到**“错失焦虑 (FOMO)”**？
-每天都有新工具、新模型、新概念。你担心如果不时刻盯着 Twitter 就会被时代抛弃。
+每天醒来，网络上都充斥着新的模型、新的框架、新的概念。大家的认知带宽已经无法处理这种指数级的增长。
 
 **Nexus 是你的定心丸。**
-我们提供一张**“全知动态地图”**。社区与 AI 智能体 24 小时监控全球技术动态，将最新的、真正有价值的技术（如 Gemini Pro, Sora, Agent 搭建）实时更新到地图上。
+我们提供一张**“全知动态地图”**。社区与 AI 智能体 24 小时监控全球技术动态，将最新的、真正有价值的技术（如 Gemini Pro, Sora, KLINGAI, Agent 搭建等等）实时更新到地图上。
 
 **你不需要满世界找教程。只要地图上的新节点亮了，就说明它值得学。在这里，你永远不会错过未来。**
 
