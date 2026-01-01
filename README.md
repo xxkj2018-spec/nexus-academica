@@ -39,7 +39,7 @@
 
 ## 🤖 特别呼吁：AI 时代的创造者
 
-**正在玩 Gemini 3、GPT-4 或 Claude 的你：**
+**正在玩 Gemini、chatGPT、Grok 或 Claude 的你：**
 
 不要让 AI 生成的有趣代码仅仅停留在你的对话框里。
 * 你用 AI 生成了一个贪吃蛇？**把它改成“元素周期表贪吃蛇”！**
@@ -87,5 +87,6 @@ npm run dev
 > 我们相信知识的传播不应被垄断，也不允许任何资本在不回馈社区的情况下私有化我们的劳动成果。
 
 Copyright (c) 2025 Nexus Academica Team.
+
 
 
