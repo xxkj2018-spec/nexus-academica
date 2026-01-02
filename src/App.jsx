@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Map as MapIcon, 
   BookOpen, 
@@ -22,10 +22,49 @@ import {
   CheckCircle,
   Code,
   Globe,
-  Loader
+  Loader,
+  AlertCircle,
+  Terminal
 } from 'lucide-react';
 
-// --- 1. 配置数据 (CONFIGURATION) ---
+// --- 0. API UTILITIES (Gemini Integration) ---
+
+// ⚠️ API Key 由运行环境自动提供，无需手动填写
+const apiKey = ""; 
+
+/**
+ * 调用 Gemini API 生成内容
+ * 包含指数退避重试机制
+ */
+async function callGeminiAPI(prompt, retries = 3) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+  
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }]
+  };
+
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || "Agent returned empty data.";
+    } catch (error) {
+      console.warn(`Attempt ${i + 1} failed: ${error.message}`);
+      if (i === retries - 1) throw error;
+      // Exponential backoff: 1s, 2s, 4s...
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+    }
+  }
+}
+
+// --- 1. CONFIGURATION ---
 
 const KNOWLEDGE_NODES = [
   { 
@@ -72,7 +111,7 @@ const MODELS = [
   { id: 'claude-3', name: 'Claude 3 Opus', icon: Bot, color: 'text-orange-400' },
 ];
 
-// --- 2. 基础组件 (COMPONENTS) ---
+// --- 2. COMPONENTS ---
 
 const HolographicCard = ({ children, className = "", onClick }) => (
   <div onClick={onClick} className={`relative bg-gray-900/60 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-xl transition-all hover:border-blue-500/30 hover:shadow-blue-500/10 group ${className}`}>
@@ -109,9 +148,7 @@ const UserStats = () => (
   </div>
 );
 
-// --- 3. 视图组件 (VIEWS) ---
-
-// 3.1 全知星图 (Galaxy View)
+// --- VIEW: Galaxy Map ---
 const GalaxyView = ({ onNodeSelect }) => {
   return (
     <div className="relative w-full h-full overflow-hidden cursor-move select-none animate-in fade-in duration-700">
@@ -158,15 +195,41 @@ const GalaxyView = ({ onNodeSelect }) => {
   );
 };
 
-// 3.2 创世工坊 (Genesis Studio)
+// --- VIEW: Genesis Studio (Creator Zone + Gemini API) ---
 const CreatorStudio = () => {
   const [selectedModel, setSelectedModel] = useState('gemini-3');
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedContent, setGeneratedContent] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  // Call the Real Gemini API
+  const handleGenerate = async (type = 'general') => {
+    if (!prompt.trim()) return;
+    setIsGenerating(true);
+    setGeneratedContent('');
+    setErrorMsg('');
+
+    // Prepend instruction based on type
+    let finalPrompt = prompt;
+    if (type === 'video') finalPrompt = `[Role: Video Director Agent] You are a professional AI video director. Create a detailed video script for the following topic. Include scene descriptions, camera angles, and narration. Topic: ${prompt}`;
+    if (type === 'code') finalPrompt = `[Role: Senior Software Engineer] You are an expert programmer. Write clean, well-commented, and robust code for the following request. Provide only the code and brief explanation. Request: ${prompt}`;
+    if (type === 'story') finalPrompt = `[Role: Sci-Fi Author] You are a creative sci-fi author. Write an engaging, educational story chapter that explains the following concept through plot and dialogue. Concept: ${prompt}`;
+
+    try {
+      const result = await callGeminiAPI(finalPrompt);
+      setGeneratedContent(result);
+    } catch (err) {
+      setErrorMsg("Connection lost to the Neural Core (API Error). Please try again.");
+      console.error(err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <div className="flex h-full bg-[#0B0B15] animate-in fade-in duration-500">
-      {/* 左侧：智能体控制台 */}
+      {/* Left: Agent & Model Panel */}
       <div className="w-80 bg-gray-950/80 border-r border-gray-800 p-6 flex flex-col gap-6">
         <div>
           <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-3 block">Model Selection</label>
@@ -204,6 +267,15 @@ const CreatorStudio = () => {
                  </div>
                </div>
              ))}
+             {isGenerating && (
+                <div className="flex gap-3 animate-pulse">
+                  <span className="text-blue-500">NOW</span>
+                  <div>
+                    <span className="font-bold text-blue-400">[Gemini Agent]</span>
+                    <span className="text-gray-300 block">Processing neural request...</span>
+                  </div>
+                </div>
+             )}
           </div>
           <div className="mt-4 p-3 bg-blue-900/10 border border-blue-500/20 rounded-lg text-xs text-blue-300">
              <div className="flex items-center gap-2 mb-1 font-bold"><Globe size={12}/> Network Access Active</div>
@@ -212,31 +284,32 @@ const CreatorStudio = () => {
         </div>
       </div>
 
-      {/* 中间：创作画布 */}
-      <div className="flex-1 p-8 flex flex-col">
-         <div className="mb-6">
+      {/* Center: Creation Canvas */}
+      <div className="flex-1 p-8 flex flex-col overflow-hidden">
+         <div className="mb-6 flex-shrink-0">
            <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
              <Zap className="text-yellow-400 fill-yellow-400" /> Genesis Studio
            </h2>
            <p className="text-gray-400">描述你想创建的知识节点，Agent 团队将自动完成搜索、验证与代码生成。</p>
          </div>
 
-         <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 mb-6 focus-within:border-blue-500 transition-colors">
+         <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 mb-6 focus-within:border-blue-500 transition-colors flex-shrink-0">
             <textarea 
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="w-full h-32 bg-transparent text-white placeholder-gray-600 focus:outline-none resize-none font-mono text-sm"
+              className="w-full h-24 bg-transparent text-white placeholder-gray-600 focus:outline-none resize-none font-mono text-sm"
               placeholder="例如：创建一个关于'Sora 视频生成原理'的互动教学关卡。要求包含扩散模型的可视化演示，并自动从 Twitter 抓取最新的 Sora 演示视频作为案例。"
             />
             <div className="flex justify-between items-center mt-4 border-t border-gray-800 pt-4">
                <div className="flex gap-4">
-                 <button className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors"><Video size={14}/> 生成视频脚本</button>
-                 <button className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors"><Gamepad2 size={14}/> 生成游戏代码</button>
-                 <button className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors"><BookOpen size={14}/> 生成小说章节</button>
+                 <button onClick={() => handleGenerate('video')} className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors hover:bg-white/5 p-1 rounded"><Video size={14}/> 生成视频脚本</button>
+                 <button onClick={() => handleGenerate('code')} className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors hover:bg-white/5 p-1 rounded"><Gamepad2 size={14}/> 生成游戏代码</button>
+                 <button onClick={() => handleGenerate('story')} className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors hover:bg-white/5 p-1 rounded"><BookOpen size={14}/> 生成小说章节</button>
                </div>
                <button 
-                 onClick={() => setIsGenerating(true)}
-                 className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all hover:scale-105"
+                 onClick={() => handleGenerate('general')}
+                 disabled={isGenerating || !prompt.trim()}
+                 className={`bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all hover:scale-105 ${isGenerating || !prompt.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
                >
                  {isGenerating ? <Loader className="animate-spin"/> : <Sparkles size={18} />}
                  <span className="uppercase tracking-wider text-xs">Invoke Agents</span>
@@ -244,19 +317,38 @@ const CreatorStudio = () => {
             </div>
          </div>
 
-         <div className="flex-1 bg-black rounded-xl border border-gray-800 relative overflow-hidden flex items-center justify-center">
-            {isGenerating ? (
-              <div className="text-center">
-                 <div className="inline-block w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                 <div className="text-blue-400 font-mono animate-pulse">Forging Content...</div>
-                 <div className="text-xs text-gray-500 mt-2">Calling {MODELS.find(m => m.id === selectedModel)?.name} API...</div>
-              </div>
-            ) : (
-              <div className="text-gray-600 flex flex-col items-center">
-                <Code size={48} className="mb-4 opacity-20" />
-                <span>等待指令... 预览区域将展示生成结果</span>
-              </div>
-            )}
+         {/* Preview Area (Real API Output) */}
+         <div className="flex-1 bg-black rounded-xl border border-gray-800 relative overflow-hidden flex flex-col">
+            <div className="bg-gray-900 px-4 py-2 border-b border-gray-800 flex justify-between items-center">
+               <span className="text-xs font-mono text-gray-500">OUTPUT_TERMINAL_V1</span>
+               <div className="flex gap-1">
+                 <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                 <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
+               </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 font-mono text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+              {isGenerating ? (
+                <div className="h-full flex flex-col items-center justify-center text-center">
+                   <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                   <div className="text-blue-400 font-mono animate-pulse">Forging Content...</div>
+                   <div className="text-xs text-gray-600 mt-2">Calling Gemini API...</div>
+                </div>
+              ) : errorMsg ? (
+                <div className="flex flex-col items-center justify-center h-full text-red-400">
+                   <AlertCircle size={48} className="mb-4 opacity-50" />
+                   <p>{errorMsg}</p>
+                </div>
+              ) : generatedContent ? (
+                <div>{generatedContent}</div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-gray-700">
+                  <Terminal size={48} className="mb-4 opacity-20" />
+                  <span>等待指令... 预览区域将展示生成结果</span>
+                </div>
+              )}
+            </div>
          </div>
       </div>
     </div>
